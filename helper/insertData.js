@@ -16,7 +16,7 @@ const g = graph.traversal().withRemote(dc);
 const __ = gremlin.process.statics;
 
 // Recibimos la informacion desde la app de Java y le damos forma al json para enviar a la Api de Neptune
-exports.insertData = async (event, context, callback) => {
+exports.insertData = async (event) => {
 	if (event.names && event.interfaces) {
 		try {
 			// Si hay una aplicacion anterior con este nombre del usuario, le ponemos el state close
@@ -57,6 +57,13 @@ exports.insertData = async (event, context, callback) => {
 				event.userApplicationKey,
 				event.endpoints
 			);
+			if (event.mainClass !== null) {
+				saveMainClass(
+					event.applicationName,
+					event.userApplicationKey,
+					event.mainClass
+				);
+			}
 			// Guardamos las relaciones de extends
 			await saveRelationExtend(
 				event.applicationName,
@@ -106,17 +113,16 @@ exports.insertData = async (event, context, callback) => {
 				.next();
 			await dc.close();
 			return {
-				statusCode: 400,
+				status: 400,
 				message: error,
 			};
 		}
 	} else {
 		await dc.close();
-		const myErrorObj = {
-			errorType: 'Error',
-			httpStatus: 500,
+		return {
+			status: 500,
+			message: 'Error',
 		};
-		callback(new Error(JSON.stringify(myErrorObj)));
 	}
 };
 
@@ -230,4 +236,16 @@ const saveEndpoints = async (app, key, data) => {
 			.property('endpoint', true)
 			.next();
 	}
+};
+
+const saveMainClass = async (app, key, value) => {
+	await g
+		.V()
+		.hasLabel(app)
+		.has('name', value)
+		.has('userApplicationKey', key)
+		.has('type', 'Class')
+		.has('state', 'loading')
+		.property('mainClass', true)
+		.next();
 };

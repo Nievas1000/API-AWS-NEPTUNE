@@ -16,7 +16,7 @@ const g = graph.traversal().withRemote(dc);
 const __ = gremlin.process.statics;
 
 // Mediante la userApplication key, creamos un json en el que van a estar almacenadas todas las aplicaciones del usuario con sus relaciones, clases e interfaces
-exports.getData = async (event, context, callback) => {
+exports.getData = async (event) => {
 	if (event.userApplicationKey) {
 		const data = [];
 		const apps = await g
@@ -38,6 +38,7 @@ exports.getData = async (event, context, callback) => {
 				.toList();
 			const dataApp = {
 				applicationName: app,
+				mainClass: null,
 				classes: [],
 				endpoints: [],
 				date: date[0],
@@ -46,6 +47,7 @@ exports.getData = async (event, context, callback) => {
 				relationsImplement: [],
 				usedClasses: [],
 				tables: [],
+				tablesNames: [],
 			};
 			// Names of Classes and Interfaces
 			const names = await g
@@ -66,7 +68,16 @@ exports.getData = async (event, context, callback) => {
 				.has('type', 'Interface')
 				.values('name')
 				.toList();
-
+			const tables = await g
+				.V()
+				.hasLabel(app)
+				.has('userApplicationKey', event.userApplicationKey)
+				.has('state', 'open')
+				.not(__.has('state', 'close'))
+				.has('type', 'Table')
+				.values('name')
+				.dedup()
+				.toList();
 			const endpoints = await g
 				.V()
 				.hasLabel(app)
@@ -77,9 +88,21 @@ exports.getData = async (event, context, callback) => {
 				.has('endpoint', true)
 				.values('name')
 				.toList();
+			const mainClass = await g
+				.V()
+				.hasLabel(app)
+				.has('userApplicationKey', event.userApplicationKey)
+				.has('state', 'open')
+				.not(__.has('state', 'close'))
+				.has('type', 'Class')
+				.has('mainClass', true)
+				.values('name')
+				.toList();
+			dataApp.mainClass = mainClass[0];
 			dataApp.endpoints.push(endpoints);
 			dataApp.classes.push(names);
 			dataApp.interfaces.push(interfaces);
+			dataApp.tablesNames.push(tables);
 			// Extend Class
 			await getRelations(app, event.userApplicationKey, dataApp, 'extend');
 			// Implement Class
@@ -94,11 +117,10 @@ exports.getData = async (event, context, callback) => {
 		return data;
 	} else {
 		await dc.close();
-		const myErrorObj = {
-			errorType: 'Error',
-			httpStatus: 500,
+		return {
+			status: 500,
+			message: 'Error',
 		};
-		callback(new Error(JSON.stringify(myErrorObj)));
 	}
 };
 

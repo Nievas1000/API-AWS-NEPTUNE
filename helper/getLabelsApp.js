@@ -16,7 +16,7 @@ const g = graph.traversal().withRemote(dc);
 const __ = gremlin.process.statics;
 
 // Mediante la userApplication key, creamos un json en el que van a estar almacenadas todas las aplicaciones del usuario con sus relaciones, clases e interfaces
-exports.getLabelsApp = async (event, context, callback) => {
+exports.getLabelsApp = async (event) => {
 	if (event.userApplicationKey) {
 		const data = [];
 		const apps = await g
@@ -39,6 +39,7 @@ exports.getLabelsApp = async (event, context, callback) => {
 			const dataApp = {
 				applicationName: app,
 				classes: [],
+				endpoints: [],
 				date: date[0],
 			};
 			data.push(dataApp);
@@ -48,10 +49,9 @@ exports.getLabelsApp = async (event, context, callback) => {
 		return data;
 	} else {
 		await dc.close();
-		const myErrorObj = {
-			errorType: 'Error',
-			httpStatus: 500,
+		return {
+			status: 500,
+			message: 'Error',
 		};
-		callback(new Error(JSON.stringify(myErrorObj)));
 	}
 };
